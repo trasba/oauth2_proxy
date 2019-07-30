@@ -3,12 +3,13 @@ package providers
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 
 	"github.com/bitly/go-simplejson"
-	"github.com/pusher/oauth2_proxy/api"
+	"github.com/pusher/oauth2_proxy/pkg/apis/sessions"
+	"github.com/pusher/oauth2_proxy/pkg/logger"
+	"github.com/pusher/oauth2_proxy/pkg/requests"
 )
 
 // AzureProvider represents an Azure based Identity Provider
@@ -88,7 +89,7 @@ func getEmailFromJSON(json *simplejson.Json) (string, error) {
 }
 
 // GetEmailAddress returns the Account email address
-func (p *AzureProvider) GetEmailAddress(s *SessionState) (string, error) {
+func (p *AzureProvider) GetEmailAddress(s *sessions.SessionState) (string, error) {
 	var email string
 	var err error
 
@@ -101,7 +102,7 @@ func (p *AzureProvider) GetEmailAddress(s *SessionState) (string, error) {
 	}
 	req.Header = getAzureHeader(s.AccessToken)
 
-	json, err := api.Request(req)
+	json, err := requests.Request(req)
 
 	if err != nil {
 		return "", err
@@ -116,12 +117,12 @@ func (p *AzureProvider) GetEmailAddress(s *SessionState) (string, error) {
 	email, err = json.Get("userPrincipalName").String()
 
 	if err != nil {
-		log.Printf("failed making request %s", err)
+		logger.Printf("failed making request %s", err)
 		return "", err
 	}
 
 	if email == "" {
-		log.Printf("failed to get email address")
+		logger.Printf("failed to get email address")
 		return "", err
 	}
 

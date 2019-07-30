@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pusher/oauth2_proxy/pkg/logger"
 )
 
 func TestLoggingHandler_ServeHTTP(t *testing.T) {
@@ -15,10 +17,23 @@ func TestLoggingHandler_ServeHTTP(t *testing.T) {
 
 	tests := []struct {
 		Format,
-		ExpectedLogMessage string
+		ExpectedLogMessage,
+		Path string
+		ExcludePaths       []string
+		SilencePingLogging bool
 	}{
-		{defaultRequestLoggingFormat, fmt.Sprintf("127.0.0.1 - - [%s] test-server GET - \"/foo/bar\" HTTP/1.1 \"\" 200 4 0", ts.Format("02/Jan/2006:15:04:05 -0700"))},
-		{"{{.RequestMethod}}", "GET\n"},
+		{logger.DefaultRequestLoggingFormat, fmt.Sprintf("127.0.0.1 - - [%s] test-server GET - \"/foo/bar\" HTTP/1.1 \"\" 200 4 0.000\n", logger.FormatTimestamp(ts)), "/foo/bar", []string{}, false},
+		{logger.DefaultRequestLoggingFormat, fmt.Sprintf("127.0.0.1 - - [%s] test-server GET - \"/foo/bar\" HTTP/1.1 \"\" 200 4 0.000\n", logger.FormatTimestamp(ts)), "/foo/bar", []string{}, true},
+		{logger.DefaultRequestLoggingFormat, fmt.Sprintf("127.0.0.1 - - [%s] test-server GET - \"/foo/bar\" HTTP/1.1 \"\" 200 4 0.000\n", logger.FormatTimestamp(ts)), "/foo/bar", []string{"/ping"}, false},
+		{logger.DefaultRequestLoggingFormat, "", "/foo/bar", []string{"/foo/bar"}, false},
+		{logger.DefaultRequestLoggingFormat, "", "/ping", []string{}, true},
+		{logger.DefaultRequestLoggingFormat, "", "/ping", []string{"/ping"}, false},
+		{logger.DefaultRequestLoggingFormat, "", "/ping", []string{"/ping"}, true},
+		{logger.DefaultRequestLoggingFormat, "", "/ping", []string{"/foo/bar", "/ping"}, false},
+		{"{{.RequestMethod}}", "GET\n", "/foo/bar", []string{}, true},
+		{"{{.RequestMethod}}", "GET\n", "/foo/bar", []string{"/ping"}, false},
+		{"{{.RequestMethod}}", "GET\n", "/ping", []string{}, false},
+		{"{{.RequestMethod}}", "", "/ping", []string{"/ping"}, true},
 	}
 
 	for _, test := range tests {
@@ -32,9 +47,15 @@ func TestLoggingHandler_ServeHTTP(t *testing.T) {
 			w.Write([]byte("test"))
 		}
 
-		h := LoggingHandler(buf, http.HandlerFunc(handler), true, test.Format)
+		logger.SetOutput(buf)
+		logger.SetReqTemplate(test.Format)
+		if test.SilencePingLogging {
+			test.ExcludePaths = append(test.ExcludePaths, "/ping")
+		}
+		logger.SetExcludePaths(test.ExcludePaths)
+		h := LoggingHandler(http.HandlerFunc(handler))
 
-		r, _ := http.NewRequest("GET", "/foo/bar", nil)
+		r, _ := http.NewRequest("GET", test.Path, nil)
 		r.RemoteAddr = "127.0.0.1"
 		r.Host = "test-server"
 

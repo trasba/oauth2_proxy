@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/pusher/oauth2_proxy/api"
+	"github.com/pusher/oauth2_proxy/pkg/apis/sessions"
+	"github.com/pusher/oauth2_proxy/pkg/requests"
 )
 
 // FacebookProvider represents an Facebook based Identity Provider
@@ -54,7 +55,7 @@ func getFacebookHeader(accessToken string) http.Header {
 }
 
 // GetEmailAddress returns the Account email address
-func (p *FacebookProvider) GetEmailAddress(s *SessionState) (string, error) {
+func (p *FacebookProvider) GetEmailAddress(s *sessions.SessionState) (string, error) {
 	if s.AccessToken == "" {
 		return "", errors.New("missing access token")
 	}
@@ -68,7 +69,7 @@ func (p *FacebookProvider) GetEmailAddress(s *SessionState) (string, error) {
 		Email string
 	}
 	var r result
-	err = api.RequestJSON(req, &r)
+	err = requests.RequestJSON(req, &r)
 	if err != nil {
 		return "", err
 	}
@@ -79,6 +80,6 @@ func (p *FacebookProvider) GetEmailAddress(s *SessionState) (string, error) {
 }
 
 // ValidateSessionState validates the AccessToken
-func (p *FacebookProvider) ValidateSessionState(s *SessionState) bool {
+func (p *FacebookProvider) ValidateSessionState(s *sessions.SessionState) bool {
 	return validateToken(p, s.AccessToken, getFacebookHeader(s.AccessToken))
 }
